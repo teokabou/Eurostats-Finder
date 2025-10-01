@@ -1,4 +1,6 @@
+
 /* ------------------- ΚΥΡΙΑ ΔΙΑΤΑΞΗ ------------------- */
+/*
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 20px;
@@ -12,8 +14,9 @@ body {
   margin: 0 auto;
   max-width: 1200px;
 }
-
+*/
 /* ------------------- SIDEBAR ------------------- */
+/*
 #sidebar {
   flex: 2;
   max-width: 300px;
@@ -29,16 +32,18 @@ body {
 #sidebar h2{
   color:#0057b8;
 }
-
+*/
 /* ------------------- MAIN ------------------- */
+/*
 #main {
   flex: 2;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-
+*/
 /* ------------------- PANELS ------------------- */
+/*
 .panel {
   background: #fff;
   border: 1px solid #ddd;
@@ -53,7 +58,7 @@ body {
   border-bottom: 1px solid #eee;
   padding-bottom: 10px;
 }
-
+*/
 /* ------------------- TREE VIEW ------------------- */
 .tree-node {
   margin-left: 1em;
@@ -80,7 +85,7 @@ span.tree-title:hover {
   color: #004494;
 }
 
-/* Παιδιά nodes */
+/* Child nodes */
 div.child-container {
   margin-left: 20px;
   display: none;
@@ -88,7 +93,7 @@ div.child-container {
   border-left: 1px dashed #ccc;
 }
 
-/* Όταν ανοίγουν */
+/* When they open*/
 div.child-container.show {
   display: block;
 }
@@ -104,46 +109,6 @@ span.tree-title::before {
 span.tree-title.open::before {
   transform: rotate(90deg);
 }
-
-/*
-.tree-node.collapsible > span::before {
-  content: "▶";
-  display: inline-block;
-  width: 1em;
-  margin-right: 5px;
-  cursor: pointer;
-  color: #555;
-  transform: rotate(0deg);
-  transition: transform 0.2s ease;
-}
-
-.tree-node.expanded > span::before {
-  transform: rotate(90deg);
-}
-
-.tree-children {
-  margin-left: 20px;
-  display: none;
-  padding-left: 10px;
-  border-left: 1px dashed #ccc;
-}
-
-.tree-node.expanded > .tree-children {
-  display: block;
-}
-
-.tree-node > span {
-  cursor: pointer;
-  padding: 3px 5px;
-  border-radius: 4px;
-  transition: background-color 0.3s ease; 
-}
-
-.tree-node > span:hover {
-  background-color: #e6f0ff; 
-  color: #004494;
-}
-*/
 
 /* ------------------- DATASET ITEMS ------------------- */
 li.dataset-item {
@@ -167,6 +132,7 @@ li.dataset-item.selected {
 }
 
 /* ------------------- BUTTONS ------------------- */
+/*
 button {
   padding: 12px 24px;
   background-color: #0073e6;
@@ -182,7 +148,7 @@ button {
 button:hover {
   background-color: #005bb5;
 }
-
+*/
 /* ------------------- RESULTS ------------------- */
 #results {
   background-color: #fff;
@@ -204,6 +170,7 @@ button:hover {
 }
 
 /* ------------------- HEADER ------------------- */
+/*
 #header {
   background-color: #0057b8;
   padding: 5%;
@@ -218,8 +185,9 @@ button:hover {
   font-size: 2.8rem;
   letter-spacing: 1px;
 }
-
+*/
 /* ------------------- RESPONSIVE ------------------- */
+/*
 @media (max-width: 768px) {
   #app {
     flex-direction: column;
@@ -227,239 +195,5 @@ button:hover {
   #sidebar {
     max-width: 100%;
     height: auto;
-  }
-}
-
-
-
-/*
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 20px;
-  background-color: #f9f9fb;
-  color: #333;
-  text-align: center;
-}
-
-#header {
-  background-color: #0057b8;
-  padding: 5%;
-  border-radius: 10px;
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-#header h1 {
-  color: white;
-  margin: 0;
-  font-size: 2.8rem;
-  letter-spacing: 1px;
-}
-
-h1 {
-  text-align: center;
-  color: #004494;
-  margin-bottom: 30px;
-  font-size: 2.5rem;
-}
-
-h2, h3 {
-  color: #0057b8;
-}
-*/
-/* ---------- TREE VIEW STYLING ---------- */
-/*
-#tree-container {
-  text-align: left;
-  max-width: 600px;
-  margin: auto;
-  font-size: 16px;
-}
-
-.tree-node {
-  margin-left: 1em;
-  position: relative;
-}
-
-.tree-node.collapsible > span::before {
-  content: "▶";
-  display: inline-block;
-  width: 1em;
-  margin-right: 5px;
-  cursor: pointer;
-  color: #555;
-  transform: rotate(0deg);
-  transition: transform 0.2s ease;
-}
-
-.tree-node.expanded > span::before {
-  transform: rotate(90deg);
-}
-
-.tree-children {
-  margin-left: 20px;
-  display: none;
-  padding-left: 10px;
-  border-left: 1px dashed #ccc;
-}
-
-.tree-node.expanded > .tree-children {
-  display: block;
-}
-
-.tree-node > span {
-  cursor: pointer;
-  padding: 3px 5px;
-  border-radius: 4px;
-}
-
-.tree-node > span:hover {
-  background-color: #e6f0ff;
-  color: #004494;
-}
-
-
-
-ul {
-    list-style-type: none;
-    padding-left: 0;
-}
-li {
-    margin-bottom: 5px;
-}
-span:hover {
-    color: #007bff;
-    text-decoration: underline;
-}
-label {
-  display: block;
-  margin-top: 15px;
-  font-weight: bold;
-  color: #444;
-}
-*/
-/* Ειδικό στυλ για πεδία εισαγωγής και dropdowns */
-/*
-select, input[type="text"] {
-  width: 100%;
-  max-width: 400px;
-  padding: 10px;
-  margin-top: 5px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-*/
-/* Στυλ για τα πεδία και τα φίλτρα */
-/*
-#container {
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-
-li.dataset-item {
-  color: #333;
-  font-style: italic;
-  margin-left: 10px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.3s, border-left 0.3s;
-  cursor: pointer;
-}
-
-li.dataset-item:hover {
-  background-color: #f1f3f5;
-}
-
-li.dataset-item.selected {
-  background-color: #e7f5ff;
-  border-left: 4px solid #228be6;
-  font-weight: bold;
-}
-
-.dataset-item {
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background 0.3s;
-}
-
-.dataset-item:hover {
-    background: #f0f0f0;
-}
-
-.dataset-item.selected {
-    background: #004494;
-    color: black;
-}
-
-.tree-title {
-    cursor: pointer;
-    font-weight: bold;
-}
-
-button#loadButton {
-    margin-top: 12px;
-    padding: 6px 12px;
-    font-size: 14px;
-}
-
-button {
-  padding: 12px 24px;
-  background-color: #0073e6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  margin-top: 10px;
-}
-
-button:hover {
-  background-color: #005bb5;
-}
-*/
-/* Στυλ για την περιοχή αποτελεσμάτων */
-/*
-#results {
-  background-color: #fff;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin-top: 30px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-#output {
-  white-space: pre-wrap;
-  font-family: 'Courier New', Courier, monospace;
-  background: #f4f4f4;
-  padding: 15px;
-  border-radius: 6px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-hr {
-  margin: 40px 0;
-  border: none;
-  border-top: 1px solid #ccc;
-}
-
-*/
-/* Responsive layout για mobile */
-/*@media (max-width: 600px) {
-  select, input[type="text"], button {
-    width: 100%;
-  }
-
-  h1 {
-    font-size: 2rem;
   }
 }*/

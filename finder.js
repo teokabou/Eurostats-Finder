@@ -74,11 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             container.innerHTML = '';
             renderTree(data, container);
-
+            /*----PALIO BUTTON ----
             const loadBtn = document.createElement('button');
             loadBtn.textContent = 'Load Dataset';
             loadBtn.id = 'loadButton';
-            container.appendChild(loadBtn);
+            container.appendChild(loadBtn);*/
         })
         .catch(error => {
             container.textContent = 'Failed to load data: ' + error.message;
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // jQuery φορτωτής
 $(function () {
-    $('#tree-container').on('click', '#loadButton', startSearch);
-    $('#filters').on('click', '#filterButton', applyFilters);
+    $('#pricing03-1').on('click', '#loadButton', startSearch);
+    $('#pricing03-1').on('click', '#filterButton', applyFilters);
 });
 
 
@@ -97,19 +97,6 @@ function startSearch() {
     if (selected) {
         code = selected.dataset.code;
         fetchStructureForDataset(code);  
-        
-       /* fetch(`fetch_dataset.php?code=${encodeURIComponent(code)}`)
-            .then(response => {
-                if (!response.ok) throw new Error('File not found');
-                return response.text();
-            })
-            .then(fileName => {
-                alert('Found RDF file: ' + fileName);
-                // Μπορείς εδώ να φορτώσεις το RDF ή να κάνεις οτιδήποτε
-            })
-            .catch(err => {
-                alert('Error: ' + err.message);
-            });*/
     } else {
         alert('Please choose a dataset.');
     }
@@ -166,7 +153,7 @@ function fetchStructureForDataset(code) {
                 });
 
                 console.log("Found dimensions:", dimensions.length);
-                $("#filters").empty().append("<h2>Filters</h2>");
+                $("#filters").empty();
                 dimensions.each(function () {
                     const $dim = $(this);
                     const conceptRef = $dim.attr("conceptRef") || $dim.attr("id");
@@ -247,9 +234,10 @@ function fetchStructureForDataset(code) {
                     const conceptRef = $(this).attr("conceptRef") || $(this).attr("id");
                     if (conceptRef) dimensionOrder.push(conceptRef);
                 });
-
+                /*---PALIO BUTTON----
                 const filter_button = $(`<button id='filterButton'>Apply filters</button><br>`);
                 $('#filters').append(filter_button);
+                */
             });
         });
     });
@@ -275,7 +263,7 @@ function applyFilters() {
     }
 
     const keyParts = dimensionOrder
-        .filter(dim => selectedValues[dim]) // βάλε μόνο όσες έχουν επιλεγεί τιμή
+        .filter(dim => selectedValues[dim]) // μόνο επιλεγμένες
         .map(dim => `c[${dim}]=${selectedValues[dim]}`);
     const key = keyParts.join("&");
 
@@ -287,17 +275,6 @@ function applyFilters() {
     });*/
     const convertUrl = "convert.php?data_url=" + encodeURIComponent(apiUrl);
     parseTurtleAndDisplay(convertUrl);
-
-    /*
-    $.get("fetch_structure.php?url=" + encodeURIComponent(apiUrl), function(data) {
-        console.log("Response from server:", data); 
-        /*const convertUrl = `convert.php?data=${encodeURIComponent(data)}`;
-        $.get(convertUrl, function(rdfOutput) {
-            $("#output").text(rdfOutput); // Ή εμφάνισέ το όπως θέλεις
-        });
-    }).fail(function(xhr, status, error) {
-        console.error("Data fetch failed:", status, error);
-    });*/
 }
 
 
