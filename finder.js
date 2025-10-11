@@ -74,11 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             container.innerHTML = '';
             renderTree(data, container);
-            /*----PALIO BUTTON ----
-            const loadBtn = document.createElement('button');
-            loadBtn.textContent = 'Load Dataset';
-            loadBtn.id = 'loadButton';
-            container.appendChild(loadBtn);*/
+
         })
         .catch(error => {
             container.textContent = 'Failed to load data: ' + error.message;
@@ -92,16 +88,23 @@ $(function () {
 });
 
 
+
 function startSearch() {
     const selected = document.querySelector("li.dataset-item.selected");
     if (selected) {
-        code = selected.dataset.code;
-        fetchStructureForDataset(code);  
+        const code = selected.dataset.code;
+        fetchStructureForDataset(code);
+
+        // αφαίρεσε προηγούμενες ενεργές καταστάσεις
+        document.querySelectorAll("li.dataset-item").forEach(el => el.classList.remove("active"));
+
+        // πρόσθεσε την κλάση στο επιλεγμένο
+        selected.classList.add("active");
     } else {
         alert('Please choose a dataset.');
     }
-
 }
+
 
 function fetchStructureForDataset(code) {
     const dataflowUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/structure/dataflow/ESTAT/${code}`;
@@ -234,10 +237,6 @@ function fetchStructureForDataset(code) {
                     const conceptRef = $(this).attr("conceptRef") || $(this).attr("id");
                     if (conceptRef) dimensionOrder.push(conceptRef);
                 });
-                /*---PALIO BUTTON----
-                const filter_button = $(`<button id='filterButton'>Apply filters</button><br>`);
-                $('#filters').append(filter_button);
-                */
             });
         });
     });

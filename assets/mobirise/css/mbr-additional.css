@@ -165,7 +165,7 @@ body {
 }
 .btn-primary,
 .btn-primary:active {
-  background-color: #11ccf2 !important;
+  background-color: #35E6F0 !important;
   border-color: #11ccf2 !important;
   color: #ffffff !important;
   box-shadow: none;
@@ -209,7 +209,7 @@ body {
 }
 .btn-info,
 .btn-info:active {
-  background-color: #11ccf2 !important;
+  background-color: #35E6F0 !important;
   border-color: #11ccf2 !important;
   color: #ffffff !important;
   box-shadow: none;
@@ -1549,13 +1549,13 @@ a {
   }
 }
 .cid-uXrblxTFNK .item-head {
-  background: #9fe870;
+  background:#35E6F0;
   padding: 2.25rem;
 }
 @media (min-width: 992px) and (max-width: 1200px) {
   .cid-uXrblxTFNK .item-head {
     padding: 2rem 1.5rem;
-    margin-bottom: 2rem;
+    
   }
 }
 @media (max-width: 767px) {
