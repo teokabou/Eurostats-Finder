@@ -79,13 +79,33 @@ function parseLeaf($leaf) {
     ];
 }
 
+//NEW WITHOUT 3 ROOT NODES
 
+$result = [];
+
+foreach ($branches as $branch) {
+
+    // πάρε τα παιδιά του κάθε root branch
+    $childBranches = $branch->xpath('nt:children/nt:branch');
+
+    foreach ($childBranches as $child) {
+        $parsed = parseBranch($child);
+        $result[] = $parsed;
+    }
+}
+
+//Alphabetical order
+usort($result, function($a, $b) {
+    return strcmp($a['title'], $b['title']);
+});
+
+/* OLD
 $result = [];
 foreach ($branches as $branch) {
     $parsed = parseBranch($branch);
     error_log("Parsed branch: " . json_encode($parsed));
     $result[] = $parsed;
-}
+}*/
 
 echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

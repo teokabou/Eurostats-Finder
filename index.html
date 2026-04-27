@@ -287,9 +287,20 @@
             <h6 class="item-subtitle mbr-fonts-style mb-0 display-7"></h6>
           </div>
           <!-- Datasets  !-->
-          <div class="item-content" id="tree-container">
-
+          <div class="mode-selector">
+              <button id="themesBtn" class="active">Navigate by Themes</button>
+              <button id="searchBtn">Search Dataset</button>
           </div>
+
+          <div id="themesSection">
+              <div class="item-content" id="tree-container"></div>
+          </div>
+
+          <div id="searchSection" style="display:none;">
+              <input type="text" id="datasetSearch" placeholder="Search datasets...">
+              <div  id="searchResults"></div>
+          </div>   
+
           <div class="mbr-section-btn item-footer"><a  class="btn item-btn btn-info display-7" id="loadButton">Choose</a></div>
         </div>
       </div>
