@@ -78,7 +78,6 @@ function showSearch(){
 };
 
 function loadTree(){
-    console.log("mpika load tree");
     const container = document.getElementById('tree-container');
     container.textContent = 'Loading...';
     fetch('toc_loader.php')

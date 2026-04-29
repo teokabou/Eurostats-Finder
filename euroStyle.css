@@ -230,8 +230,6 @@ li.dataset-item::before {
 }
 
 .mode-selector button {
-    padding-top: 2%;
-    padding-bottom: 2%;
     border: 1px solid #ccc;
     background: white;
     transition: 0.2s;

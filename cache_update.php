@@ -38,10 +38,10 @@ function downloadWithCurl($url, $cacheFile) {
 }
 
 $tocUrl  = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/xml';
-$dcatUrl = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/dcat/ESTAT/FULL';
+//$dcatUrl = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/dcat/ESTAT/FULL';
 
 $tocCache  = __DIR__ . '/cache/toc.xml';
-$dcatCache = __DIR__ . '/cache/dcat.zip';
+//$dcatCache = __DIR__ . '/cache/dcat.zip';
 
 $result = [];
 
@@ -49,15 +49,15 @@ $result = [];
 $result["toc"] = downloadWithCurl($tocUrl, $tocCache);
 
 // DCAT
-$result["dcat"] = downloadWithCurl($dcatUrl, $dcatCache);
-
+//$result["dcat"] = downloadWithCurl($dcatUrl, $dcatCache);
+/*
 // unzip only if downloaded
 if ($result["dcat"]["success"]) {
 
     $output = shell_exec('php extractZipDCAT.php 2>&1');
 
     $result["extract"] = $output;
-}
+}*/
 
 header('Content-Type: application/json; charset=utf-8');
 
