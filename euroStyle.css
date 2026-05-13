@@ -214,7 +214,6 @@ li.dataset-item::before {
   background-color: #eaf4ff; 
   transition: background 0.2s ease;
 }
-
 .mode-selector {
     margin-top: 3%;
     margin-bottom: 3%;
@@ -222,7 +221,7 @@ li.dataset-item::before {
     margin-right: auto;
     width: 90%;
     display: flex;
-    align-items: center;
+    align-items: stretch; /* αλλαγή από center */
     justify-content: center;
     border: 2px solid #6de111;
     border-radius: 20px;
@@ -230,21 +229,29 @@ li.dataset-item::before {
 }
 
 .mode-selector button {
-    border: 1px solid #ccc;
+    border: none; /* αφαίρεση border για καθαρότερη εμφάνιση */
     background: white;
     transition: 0.2s;
     width: 50%;
-    color:#666;
+    color: #666;
     font-weight: lighter;
+    padding: 12px 20px; /* προσθήκη padding για καλύτερο μέγεθος */
+    cursor: pointer;
 }
 
 .mode-selector button.active {
     font-weight: bold;
     background: #5FED6D;
-    color:#fff9fc;
-    border-color: #5FED6D;
+    color: #fff9fc;
 }
 
+.mode-selector button:first-child {
+    border-radius: 18px 0 0 18px; /* στρογγυλεμένες γωνίες αριστερά */
+}
+
+.mode-selector button:last-child {
+    border-radius: 0 18px 18px 0; /* στρογγυλεμένες γωνίες δεξιά */
+}
 
 .dataset-item {
     padding: 6px 8px;

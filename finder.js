@@ -115,10 +115,7 @@ function handleSearch() {
             });
             html += "</ul>";
             document.getElementById("searchResults").innerHTML = html;
-
-            // 🔥 ΕΔΩ μπαίνει το click behavior
             document.querySelectorAll(".search-item").forEach(item => {
-
                 item.addEventListener("click", function () {
                     document.querySelectorAll(".dataset-item").forEach(el => {
                         el.classList.remove("selected");
@@ -135,7 +132,6 @@ $(function () {
     .then(r => r.json())
     .then(data => {
         console.log("TOC update status:", data);
-
         if (data.update) {
             console.log("Update executed");
         }
@@ -161,7 +157,7 @@ function startSearch() {
     }
 }
 
-
+let codeLabels = {};
 function fetchStructureForDataset(code) {
     const dataflowUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/structure/dataflow/ESTAT/${code}`;
     const proxied = "fetch_structure.php?url=" + encodeURIComponent(dataflowUrl);
@@ -251,17 +247,22 @@ function fetchStructureForDataset(code) {
                         }
                         const allowedCodes = realValuesByDimension[conceptRef] || [];
                         const select = $('<select></select>').attr('id', `filter-${conceptRef}`).addClass('dimension-filter');
-                        select.append($('<option></option>').attr('value', '').text(`-- Select ${conceptRef} --`));
+                        select.append($('<option></option>').attr('value', '').text(`-- Select ${codelistName} --`));
                         $(codelistXml).find("*").filter(function () {
                             return this.tagName.toLowerCase().endsWith("code");
                         }).each(function () {
                             const $code = $(this);
                             const codeId = $code.attr("id");
-                            if (!allowedCodes.includes(codeId)) return; // <- Φιλτράρισμα
+                            if (!allowedCodes.includes(codeId)) return; 
                             const label = $code.find("*").filter(function () {
                                 return this.tagName.toLowerCase().endsWith("name");
                             }).first().text();
                             select.append($('<option></option>').attr('value', codeId).text(`${label} [${codeId}]`));
+                            if (!codeLabels[conceptRef]) {
+                                codeLabels[conceptRef] = {};
+                            }
+                            codeLabels[conceptRef][codeId] = label;
+                            console.log(label+" , "+codeId+","+conceptRef);
                         });
                         const wrapper = $('<div></div>').addClass('filter-block');
                         wrapper.append($(`<label><b>${codelistName || conceptRef}</b></label><br>`));
@@ -280,15 +281,15 @@ function fetchStructureForDataset(code) {
     });
 }
 
-let datasetCode = null;         // ορίζεται στο fetchStructureForDataset
-let dimensionOrder = [];        // γεμίζει με τη σωστή σειρά των dimensions
-
 function applyFilters() {
     const selectedValues = {};
     // Πάρε τιμές από όλα τα φίλτρα
     $(".dimension-filter").each(function () {
         const id = $(this).attr("id").replace("filter-", "");
         const value = $(this).val();
+        //nea dokimi gia kanonikes times
+        const labeltext=$(this).text();
+        console.log(id +"  "+value+" "+labeltext);
         selectedValues[id] = value || "";  // άδειο string για μη επιλεγμένα
     });
     if (!datasetCode || dimensionOrder.length === 0) {
@@ -300,11 +301,114 @@ function applyFilters() {
         .map(dim => `c[${dim}]=${selectedValues[dim]}`);
     const key = keyParts.join("&");
     const apiUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/${datasetCode}/1.0?${key}`;
+    
+    
     const convertUrl = "convert.php?data_url=" + encodeURIComponent(apiUrl);
+
     parseTurtleAndDisplay(convertUrl);
 }
+//neo  parse 
+function parseTurtleAndDisplay(url) {
+    $.get(url, function(data) {
+        const lines = data.split('\n');
+        const observations = [];
+        let currentObs = null;
+        // Regex patterns για το νέο format
+        const obsStartPattern = /^estat:obs\//;
+        const datasetPattern = /qb:dataSet\s+(\S+)/;
+        const refPeriodPattern = /sdmx-dimension:refPeriod\s+"([^"]+)"/;
+        const obsValuePattern = /sdmx-measure:obsValue\s+"([^"]+)"/;
+        const dimensionPattern = /(sdmx-dimension|sdmx-attribute|estatdim):(\w+)\s+estatcode:(\w+)\/(\w+)/;
+        lines.forEach(line => {
+            line = line.trim();
+            // Νέο observation
+            if (obsStartPattern.test(line)) {
+                if (currentObs && Object.keys(currentObs).length > 0) {
+                    observations.push(currentObs);
+                }
+                currentObs = {};
+                return;
+            }
+            if (!currentObs) return;
+            // Time period
+            const timeMatch = line.match(refPeriodPattern);
+            if (timeMatch) {
+                currentObs.time = timeMatch[1];
+                return;
+            }
+            // Observation Value
+            const valueMatch = line.match(obsValuePattern);
+            if (valueMatch) {
+                currentObs.value = valueMatch[1];
+                return;
+            }
+            // Dimensions
+            const dimMatch = line.match(dimensionPattern);
+            if (dimMatch) {
+                const [, namespace, property, codeType, codeValue] = dimMatch;
+                // Χρησιμοποιούμε human-readable key
+                const key = property === 'refArea' ? 'geo' : 
+                           property === 'unitMeasure' ? 'unit' : 
+                           codeType;
+                currentObs[key] = codeValue.toUpperCase();
+            }
+        });
+        // Προσθήκη τελευταίου observation
+        if (currentObs && Object.keys(currentObs).length > 0) {
+            observations.push(currentObs);
+        }
+        // Εύρεση variable dimensions
+        const dimensionKeys = {};
+        observations.forEach(obs => {
+            for (const key in obs) {
+                if (key !== 'time' && key !== 'value') {
+                    dimensionKeys[key] = dimensionKeys[key] || new Set();
+                    dimensionKeys[key].add(obs[key]);
+                }
+            }
+        });
+        const variableKeys = Object.keys(dimensionKeys).filter(
+            key => dimensionKeys[key].size > 1
+        );
+        // Build table
+        let html = `
+            <table class="rdf-table">
+                <thead>
+                    <tr>
+                        <th>Time Period</th>
+                        <th>Value</th>
+                        ${variableKeys.map(k => `<th>${capitalizeFirst(k)}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        observations.forEach(obs => {
+            html += `<tr>
+                <td>${obs.time || ''}</td>
+                <td>${formatNumber(obs.value)}</td>
+                ${variableKeys.map(k => `<td>${obs[k] || ''}</td>`).join('')}
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        // Προσθήκη metadata
+        html += `<p class="obs-count">Total observations: ${observations.length}</p>`;
+        $('#output').html(html);
+    }).fail(function(xhr, status, error) {
+        $('#output').html(`<div class="error">Error loading RDF: ${error}</div>`);
+    });
+}
 
+function capitalizeFirst(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
+function formatNumber(val) {
+    if (!val) return '';
+    const num = parseFloat(val);
+    return isNaN(num) ? val : num.toLocaleString();
+}
+
+/* palio kako parse
 function parseTurtleAndDisplay(url) {
     $.get(url, function(data) {
         const lines = data.split('\n');
@@ -363,4 +467,4 @@ function parseTurtleAndDisplay(url) {
         html += "</tbody></table>";
         $("#output").html(html);
     });
-}
+}*/

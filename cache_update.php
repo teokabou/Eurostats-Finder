@@ -1,11 +1,7 @@
 <?php
-
 set_time_limit(0); // no timeout for update job
-
 function downloadWithCurl($url, $cacheFile) {
-
     $ch = curl_init($url);
-
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
@@ -15,12 +11,9 @@ function downloadWithCurl($url, $cacheFile) {
             "User-Agent: EurostatsFinderBot/1.0"
         ]
     ]);
-
     $data = curl_exec($ch);
-
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-
     if ($data !== false && $httpCode === 200) {
         file_put_contents($cacheFile, $data);
         return [
@@ -29,7 +22,6 @@ function downloadWithCurl($url, $cacheFile) {
             "error" => null
         ];
     }
-
     return [
         "success" => false,
         "httpCode" => $httpCode,
@@ -39,10 +31,8 @@ function downloadWithCurl($url, $cacheFile) {
 
 $tocUrl  = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/xml';
 //$dcatUrl = 'https://ec.europa.eu/eurostat/api/dissemination/catalogue/dcat/ESTAT/FULL';
-
 $tocCache  = __DIR__ . '/cache/toc.xml';
 //$dcatCache = __DIR__ . '/cache/dcat.zip';
-
 $result = [];
 
 // TOC
@@ -59,7 +49,6 @@ if ($result["dcat"]["success"]) {
     $result["extract"] = $output;
 }*/
 
-header('Content-Type: application/json; charset=utf-8');
+$result["toc"] = downloadWithCurl($tocUrl, $tocCache);
 
-echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 ?>
