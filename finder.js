@@ -158,6 +158,7 @@ function startSearch() {
 }
 
 let codeLabels = {};
+let dimLabels={};
 function fetchStructureForDataset(code) {
     const dataflowUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/structure/dataflow/ESTAT/${code}`;
     const proxied = "fetch_structure.php?url=" + encodeURIComponent(dataflowUrl);
@@ -195,13 +196,12 @@ function fetchStructureForDataset(code) {
                         return this.tagName.toLowerCase().endsWith("name");
                     }).first().text();
                     if (id && name) {
-                        concepts[id] = name;
+                        concepts[id] = name; 
                     }
                 });
                 const dimensions = $(dsdXml).find("*").filter(function () {
                     return this.tagName.toLowerCase().endsWith("dimension");
                 });
-                console.log("Found dimensions:", dimensions.length);
                 $("#filters").empty();
                 dimensions.each(function () {
                     const $dim = $(this);
@@ -238,6 +238,7 @@ function fetchStructureForDataset(code) {
                                         const lang = child.getAttribute("xml:lang") || child.getAttribute("lang");
                                         if (!lang || lang === "en") {
                                             codelistName = child.textContent.trim();
+                                            dimLabels[codelistId]=codelistName;
                                             break;
                                         }
                                     }
@@ -262,12 +263,11 @@ function fetchStructureForDataset(code) {
                                 codeLabels[conceptRef] = {};
                             }
                             codeLabels[conceptRef][codeId] = label;
-                            console.log(label+" , "+codeId+","+conceptRef);
                         });
                         const wrapper = $('<div></div>').addClass('filter-block');
                         wrapper.append($(`<label><b>${codelistName || conceptRef}</b></label><br>`));
                         wrapper.append(select);
-                        $('#filters').append(wrapper);
+                        $('#filters').append(wrapper);                        
                     });
                 });
                 datasetCode = code;
@@ -282,189 +282,151 @@ function fetchStructureForDataset(code) {
 }
 
 function applyFilters() {
+    $.ajax({
+        url: "save_labels.php",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(codeLabels),
+        processData: false,
+        success: function(res) {
+            console.err("Saved labels:", res);
+            parseTurtleAndDisplay(convertUrl);
+        },
+        error: function(xhr) {
+            console.err("Label save error:", xhr.responseText);
+            parseTurtleAndDisplay(convertUrl);
+        }
+    });
     const selectedValues = {};
-    // Πάρε τιμές από όλα τα φίλτρα
     $(".dimension-filter").each(function () {
         const id = $(this).attr("id").replace("filter-", "");
         const value = $(this).val();
-        //nea dokimi gia kanonikes times
-        const labeltext=$(this).text();
-        console.log(id +"  "+value+" "+labeltext);
-        selectedValues[id] = value || "";  // άδειο string για μη επιλεγμένα
+        selectedValues[id] = value || "";
     });
     if (!datasetCode || dimensionOrder.length === 0) {
         console.error("Missing datasetCode or dimensionOrder");
         return;
     }
     const keyParts = dimensionOrder
-        .filter(dim => selectedValues[dim]) // μόνο επιλεγμένες
+        .filter(dim => selectedValues[dim])
         .map(dim => `c[${dim}]=${selectedValues[dim]}`);
     const key = keyParts.join("&");
     const apiUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/${datasetCode}/1.0?${key}`;
-    
-    
     const convertUrl = "convert.php?data_url=" + encodeURIComponent(apiUrl);
 
-    parseTurtleAndDisplay(convertUrl);
 }
-//neo  parse 
+
+// neo parse
+const labelMap = {};
+
 function parseTurtleAndDisplay(url) {
+    // reset
+    Object.keys(labelMap).forEach(k => delete labelMap[k]);
     $.get(url, function(data) {
         const lines = data.split('\n');
-        const observations = [];
-        let currentObs = null;
-        // Regex patterns για το νέο format
-        const obsStartPattern = /^estat:obs\//;
-        const datasetPattern = /qb:dataSet\s+(\S+)/;
-        const refPeriodPattern = /sdmx-dimension:refPeriod\s+"([^"]+)"/;
-        const obsValuePattern = /sdmx-measure:obsValue\s+"([^"]+)"/;
-        const dimensionPattern = /(sdmx-dimension|sdmx-attribute|estatdim):(\w+)\s+estatcode:(\w+)\/(\w+)/;
+        const labelMap = {};
+        let currentCode = null;
+        const labelStartPattern = /estatcode:(\w+)\/([\w\-]+)\s+a\s+skos:Concept/;
+        const rdfsLabelPattern   = /rdfs:label\s+"([^"]+)"/;
+
         lines.forEach(line => {
             line = line.trim();
-            // Νέο observation
+            const labelStart = line.match(labelStartPattern);
+            if (labelStart) {
+                currentCode = { dim: labelStart[1].toLowerCase(), code: labelStart[2] };
+                return;
+            }
+            const labelValue = line.match(rdfsLabelPattern);
+            if (labelValue && currentCode) {
+                if (!labelMap[currentCode.dim]) labelMap[currentCode.dim] = {};
+                labelMap[currentCode.dim][currentCode.code] = labelValue[1];
+                return;
+            }
+            if (line === '.') currentCode = null;
+        });
+
+        const observations = [];
+        let currentObs = null;
+        const obsStartPattern   = /^estat:obs\//;
+        const refPeriodPattern  = /sdmx-dimension:timePeriod\s+"([^"]+)"/;
+        const obsValuePattern   = /sdmx-measure:obsValue\s+"([^"]+)"/;
+        const dimensionPattern  = /(sdmx-dimension|sdmx-attribute|estatdim):(\w+)\s+estatcode:(\w+)\/([\w\-]+)/;
+        lines.forEach(line => {
+            line = line.trim();
             if (obsStartPattern.test(line)) {
-                if (currentObs && Object.keys(currentObs).length > 0) {
-                    observations.push(currentObs);
-                }
+                if (currentObs && Object.keys(currentObs).length) observations.push(currentObs);
                 currentObs = {};
                 return;
             }
             if (!currentObs) return;
-            // Time period
             const timeMatch = line.match(refPeriodPattern);
-            if (timeMatch) {
-                currentObs.time = timeMatch[1];
-                return;
-            }
-            // Observation Value
+            if (timeMatch) { currentObs.time = timeMatch[1]; return; }
             const valueMatch = line.match(obsValuePattern);
-            if (valueMatch) {
-                currentObs.value = valueMatch[1];
-                return;
-            }
-            // Dimensions
+            if (valueMatch) { currentObs.value = valueMatch[1]; return; }
             const dimMatch = line.match(dimensionPattern);
             if (dimMatch) {
-                const [, namespace, property, codeType, codeValue] = dimMatch;
-                // Χρησιμοποιούμε human-readable key
-                const key = property === 'refArea' ? 'geo' : 
-                           property === 'unitMeasure' ? 'unit' : 
-                           codeType;
-                currentObs[key] = codeValue.toUpperCase();
+                const [,, property, codeType, codeValue] = dimMatch;
+                const key    = codeType.toLowerCase();
+                const label  = (labelMap[key] && labelMap[key][codeValue]) ? labelMap[key][codeValue] : codeValue;
+                currentObs[key] = label;
             }
         });
-        // Προσθήκη τελευταίου observation
-        if (currentObs && Object.keys(currentObs).length > 0) {
-            observations.push(currentObs);
-        }
-        // Εύρεση variable dimensions
+        if (currentObs && Object.keys(currentObs).length) observations.push(currentObs);
         const dimensionKeys = {};
         observations.forEach(obs => {
-            for (const key in obs) {
-                if (key !== 'time' && key !== 'value') {
-                    dimensionKeys[key] = dimensionKeys[key] || new Set();
-                    dimensionKeys[key].add(obs[key]);
+            for (const k in obs) {
+                if (k !== 'time' && k !== 'value') {
+                    dimensionKeys[k] =
+                        dimensionKeys[k] || new Set();
+                    dimensionKeys[k].add(obs[k]);
                 }
             }
         });
-        const variableKeys = Object.keys(dimensionKeys).filter(
-            key => dimensionKeys[key].size > 1
-        );
-        // Build table
+        const variableKeys =
+            Object.keys(dimensionKeys).filter(
+                k => dimensionKeys[k].size > 1
+            );
         let html = `
             <table class="rdf-table">
                 <thead>
                     <tr>
                         <th>Time Period</th>
                         <th>Value</th>
-                        ${variableKeys.map(k => `<th>${capitalizeFirst(k)}</th>`).join('')}
+                        ${variableKeys.map(
+                            k => `<th>${dimLabels[k.toUpperCase()] || k.toUpperCase()}</th>`
+                        ).join('')}
                     </tr>
                 </thead>
                 <tbody>
         `;
         observations.forEach(obs => {
-            html += `<tr>
-                <td>${obs.time || ''}</td>
-                <td>${formatNumber(obs.value)}</td>
-                ${variableKeys.map(k => `<td>${obs[k] || ''}</td>`).join('')}
-            </tr>`;
+            html += `
+                <tr>
+                    <td>${obs.time || ''}</td>
+                    <td>${formatNumber(obs.value)}</td>
+                    ${variableKeys.map(
+                        k => `<td>${obs[k] || ''}</td>`
+                    ).join('')}
+                </tr>
+            `;
         });
-        html += '</tbody></table>';
-        // Προσθήκη metadata
-        html += `<p class="obs-count">Total observations: ${observations.length}</p>`;
+        html += `
+                </tbody>
+            </table>
+        `;
+        html += `
+            <p class="obs-count">
+                Total observations: ${observations.length}
+            </p>
+        `;
         $('#output').html(html);
-    }).fail(function(xhr, status, error) {
-        $('#output').html(`<div class="error">Error loading RDF: ${error}</div>`);
     });
-}
-
-function capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function formatNumber(val) {
     if (!val) return '';
     const num = parseFloat(val);
-    return isNaN(num) ? val : num.toLocaleString();
+    return isNaN(num)
+        ? val
+        : num.toLocaleString();
 }
-
-/* palio kako parse
-function parseTurtleAndDisplay(url) {
-    $.get(url, function(data) {
-        const lines = data.split('\n');
-        const observations = [];
-        let currentObs = null;
-        lines.forEach(line => {
-            line = line.trim();
-            if (line.startsWith("ex:obs")) {
-                if (currentObs) observations.push(currentObs);
-                currentObs = {};
-            }
-            if (line.includes("sdmx:time")) {
-                currentObs.time = line.match(/"(.+?)"/)?.[1];
-            } else if (line.includes("sdmx:value")) {
-                currentObs.value = line.match(/"(.+?)"/)?.[1];
-            } else if (line.includes("sdmx:")) {
-                const match = line.match(/sdmx:(\w+)\s+"(.+?)"/);
-                if (match) {
-                    const [, key, val] = match;
-                    if (key !== "time" && key !== "value") {
-                        currentObs[key] = val;
-                    }
-                }
-            }
-        });
-        if (currentObs) observations.push(currentObs);
-        // Get all dynamic keys
-        const dimensionKeys = {};
-        observations.forEach(obs => {
-            for (const key in obs) {
-                if (key !== "time" && key !== "value") {
-                    dimensionKeys[key] = dimensionKeys[key] || new Set();
-                    dimensionKeys[key].add(obs[key]);
-                }
-            }
-        });
-        // Keep only keys with multiple values
-        const variableKeys = Object.keys(dimensionKeys).filter(
-            key => dimensionKeys[key].size > 1
-        );
-        // Build table
-        let html = "<table border='1' style='border-collapse: collapse;'><thead><tr>";
-        html += "<th>Time</th><th>Value</th>";
-        variableKeys.forEach(key => {
-            html += `<th>${key}</th>`;
-        });
-        html += "</tr></thead><tbody>";
-        observations.forEach(obs => {
-            html += "<tr>";
-            html += `<td>${obs.time || ""}</td><td>${obs.value || ""}</td>`;
-            variableKeys.forEach(key => {
-                html += `<td>${obs[key] || ""}</td>`;
-            });
-            html += "</tr>";
-        });
-        html += "</tbody></table>";
-        $("#output").html(html);
-    });
-}*/
