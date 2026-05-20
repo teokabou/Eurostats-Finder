@@ -288,12 +288,10 @@ function applyFilters() {
         contentType: "application/json",
         data: JSON.stringify(codeLabels),
         processData: false,
-        success: function(res) {
-            console.err("Saved labels:", res);
+        success: function() {
             parseTurtleAndDisplay(convertUrl);
         },
-        error: function(xhr) {
-            console.err("Label save error:", xhr.responseText);
+        error: function() {
             parseTurtleAndDisplay(convertUrl);
         }
     });
