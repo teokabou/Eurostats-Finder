@@ -202,6 +202,7 @@ function fetchStructureForDataset(code) {
                 const dimensions = $(dsdXml).find("*").filter(function () {
                     return this.tagName.toLowerCase().endsWith("dimension");
                 });
+                console.log("Found dimensions:", dimensions.length);
                 $("#filters").empty();
                 dimensions.each(function () {
                     const $dim = $(this);
@@ -263,6 +264,7 @@ function fetchStructureForDataset(code) {
                                 codeLabels[conceptRef] = {};
                             }
                             codeLabels[conceptRef][codeId] = label;
+                            //console.log(label+" , "+codeId+","+conceptRef);
                         });
                         const wrapper = $('<div></div>').addClass('filter-block');
                         wrapper.append($(`<label><b>${codelistName || conceptRef}</b></label><br>`));
@@ -282,16 +284,19 @@ function fetchStructureForDataset(code) {
 }
 
 function applyFilters() {
+    console.log("FINAL LABELS:", codeLabels);
     $.ajax({
         url: "save_labels.php",
         type: "POST",
         contentType: "application/json",
         data: JSON.stringify(codeLabels),
         processData: false,
-        success: function() {
+        success: function(res) {
+            console.log("Saved labels:", res);
             parseTurtleAndDisplay(convertUrl);
         },
-        error: function() {
+        error: function(xhr) {
+            console.log("Label save error:", xhr.responseText);
             parseTurtleAndDisplay(convertUrl);
         }
     });
@@ -322,6 +327,8 @@ function parseTurtleAndDisplay(url) {
     Object.keys(labelMap).forEach(k => delete labelMap[k]);
     $.get(url, function(data) {
         const lines = data.split('\n');
+
+        // PASS 1: διάβασε μόνο τα labels
         const labelMap = {};
         let currentCode = null;
         const labelStartPattern = /estatcode:(\w+)\/([\w\-]+)\s+a\s+skos:Concept/;
@@ -343,12 +350,16 @@ function parseTurtleAndDisplay(url) {
             if (line === '.') currentCode = null;
         });
 
+        console.log("LABEL MAP after pass 1:", labelMap); // έλεγξε εδώ
+
+        // PASS 2: διάβασε τα observations χρησιμοποιώντας το έτοιμο labelMap
         const observations = [];
         let currentObs = null;
         const obsStartPattern   = /^estat:obs\//;
         const refPeriodPattern  = /sdmx-dimension:timePeriod\s+"([^"]+)"/;
         const obsValuePattern   = /sdmx-measure:obsValue\s+"([^"]+)"/;
         const dimensionPattern  = /(sdmx-dimension|sdmx-attribute|estatdim):(\w+)\s+estatcode:(\w+)\/([\w\-]+)/;
+
         lines.forEach(line => {
             line = line.trim();
             if (obsStartPattern.test(line)) {
@@ -370,7 +381,13 @@ function parseTurtleAndDisplay(url) {
             }
         });
         if (currentObs && Object.keys(currentObs).length) observations.push(currentObs);
+
+    
+        // -------------------------
+        // TABLE BUILD
+        // -------------------------
         const dimensionKeys = {};
+
         observations.forEach(obs => {
             for (const k in obs) {
                 if (k !== 'time' && k !== 'value') {
@@ -380,10 +397,12 @@ function parseTurtleAndDisplay(url) {
                 }
             }
         });
+
         const variableKeys =
             Object.keys(dimensionKeys).filter(
                 k => dimensionKeys[k].size > 1
             );
+
         let html = `
             <table class="rdf-table">
                 <thead>
@@ -397,7 +416,9 @@ function parseTurtleAndDisplay(url) {
                 </thead>
                 <tbody>
         `;
+
         observations.forEach(obs => {
+
             html += `
                 <tr>
                     <td>${obs.time || ''}</td>
@@ -408,23 +429,91 @@ function parseTurtleAndDisplay(url) {
                 </tr>
             `;
         });
+
         html += `
                 </tbody>
             </table>
         `;
+
         html += `
             <p class="obs-count">
                 Total observations: ${observations.length}
             </p>
         `;
+
         $('#output').html(html);
+
+        console.log("LABEL MAP:", labelMap);
     });
 }
 
 function formatNumber(val) {
+
     if (!val) return '';
+
     const num = parseFloat(val);
+
     return isNaN(num)
         ? val
         : num.toLocaleString();
 }
+/* palio kako parse
+function parseTurtleAndDisplay(url) {
+    $.get(url, function(data) {
+        const lines = data.split('\n');
+        const observations = [];
+        let currentObs = null;
+        lines.forEach(line => {
+            line = line.trim();
+            if (line.startsWith("ex:obs")) {
+                if (currentObs) observations.push(currentObs);
+                currentObs = {};
+            }
+            if (line.includes("sdmx:time")) {
+                currentObs.time = line.match(/"(.+?)"/)?.[1];
+            } else if (line.includes("sdmx:value")) {
+                currentObs.value = line.match(/"(.+?)"/)?.[1];
+            } else if (line.includes("sdmx:")) {
+                const match = line.match(/sdmx:(\w+)\s+"(.+?)"/);
+                if (match) {
+                    const [, key, val] = match;
+                    if (key !== "time" && key !== "value") {
+                        currentObs[key] = val;
+                    }
+                }
+            }
+        });
+        if (currentObs) observations.push(currentObs);
+        // Get all dynamic keys
+        const dimensionKeys = {};
+        observations.forEach(obs => {
+            for (const key in obs) {
+                if (key !== "time" && key !== "value") {
+                    dimensionKeys[key] = dimensionKeys[key] || new Set();
+                    dimensionKeys[key].add(obs[key]);
+                }
+            }
+        });
+        // Keep only keys with multiple values
+        const variableKeys = Object.keys(dimensionKeys).filter(
+            key => dimensionKeys[key].size > 1
+        );
+        // Build table
+        let html = "<table border='1' style='border-collapse: collapse;'><thead><tr>";
+        html += "<th>Time</th><th>Value</th>";
+        variableKeys.forEach(key => {
+            html += `<th>${key}</th>`;
+        });
+        html += "</tr></thead><tbody>";
+        observations.forEach(obs => {
+            html += "<tr>";
+            html += `<td>${obs.time || ""}</td><td>${obs.value || ""}</td>`;
+            variableKeys.forEach(key => {
+                html += `<td>${obs[key] || ""}</td>`;
+            });
+            html += "</tr>";
+        });
+        html += "</tbody></table>";
+        $("#output").html(html);
+    });
+}*/

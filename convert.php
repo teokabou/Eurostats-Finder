@@ -1,6 +1,14 @@
 <?php
 set_time_limit(0); 
 ini_set('memory_limit', '256M');
+// Debug  κάθε βήμα με timestamp
+function logStep($msg) {
+    file_put_contents("debug_steps.log", 
+        date('H:i:s') . " - $msg\n", FILE_APPEND);
+}
+
+logStep("START");
+ob_start();
 
 $context = stream_context_create([
     'http' => ['timeout' => 60]
@@ -16,7 +24,12 @@ $labels = [];
 if (file_exists("cache/labels.json")) {
     $labels = json_decode(file_get_contents("cache/labels.json"), true) ?: [];
 }
-
+logStep("Labels loaded: " . count($labels));
+// Προσωρινά για debug
+file_put_contents("debug_labels.log", 
+    "LABELS KEYS: " . implode(", ", array_keys($labels)) . "\n" .
+    "GEO sample: " . print_r($labels['GEO'] ?? 'NOT FOUND', true) . "\n"
+);
 $dataXml = @file_get_contents($dataUrl, false, $context);
 if (!$dataXml) {
     http_response_code(504);
@@ -54,12 +67,14 @@ echo "    rdfs:label \"Eurostat Dataset: $datasetId\"@en ;\n";
 echo "    qb:structure estat:dsd/$datasetId .\n\n";
 
 $printedLabels = [];
+// FIX: initialize $skosBlocks so it always exists
 $skosBlocks    = [];
 
 echo "# Observations\n\n";
 logStep("Before echo output");
 logStep("XML parsed, series count: " . count($seriesList));
 foreach ($seriesList as $series) {
+    
     if ($series->getName() !== 'Series') {
         continue;
     }
@@ -70,25 +85,31 @@ foreach ($seriesList as $series) {
     foreach ($series->Obs as $obs) {
         $time  = (string)$obs['TIME_PERIOD'];
         $value = (string)$obs['OBS_VALUE'];
+
         $obsUriParts = [];
         foreach ($dimensions as $dim => $val) {
             $obsUriParts[] = strtoupper($dim) . "-" . strtoupper($val);
         }
         $obsUriParts[] = "time-" . $time;
+
         $obsUri =
             "estat:obs/"
             . strtolower($datasetId)
             . "/"
             . implode("/", $obsUriParts);
+
         echo "$obsUri a qb:Observation ;\n";
         echo "    qb:dataSet $datasetUri ;\n";
         echo "    sdmx-dimension:timePeriod \"$time\"^^xsd:gYear ;\n";
+
         if (is_numeric($value)) {
             echo "    sdmx-measure:obsValue \"$value\"^^xsd:decimal ;\n";
         } else {
             echo "    sdmx-measure:obsValue \"$value\" ;\n";
         }
+
         foreach ($dimensions as $dim => $val) {
+            logStep("Processing series $dim");
             $dimUpper = strtoupper($dim);
             $valUpper = strtoupper($val);
             echo "    estatdim:$dimUpper estatcode:$dimUpper/$valUpper ;\n";
@@ -96,11 +117,13 @@ foreach ($seriesList as $series) {
             if (!isset($printedLabels[$uniqueKey])) {
                 $printedLabels[$uniqueKey] = true;
                 $label = $labels[$dimUpper][$valUpper] ?? null;
+
                 file_put_contents("debug_labels.log",
                     "[$dimUpper][$valUpper] => " . var_export($label, true) . "\n",
                     FILE_APPEND
                 );
                 $escaped = addslashes($label);
+
                 $skosBlocks[] =
                     "estatcode:$dimUpper/$valUpper a skos:Concept ;\n"
                     . "    skos:notation \"$valUpper\" ;\n"
@@ -112,10 +135,14 @@ foreach ($seriesList as $series) {
         echo "    .\n\n";
     }
 }
+logStep("After echo output - skosBlocks count: " . count($skosBlocks));
 echo "# Code Labels\n\n";
 if (!empty($skosBlocks)) {
     echo implode("", $skosBlocks);
 }
+
 $output = ob_get_clean();
+logStep("Output size: " . strlen($output) . " bytes");
 echo $output;
+logStep("DONE");
 ?>
