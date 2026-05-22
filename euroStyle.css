@@ -113,8 +113,9 @@ li.dataset-item::before {
 
 /* ------------------- FILTERS ------------------- */
 #filters {
+  max-height: 350px;
   overflow-y: auto;
-  max-height: 300px;
+  overflow-x:auto;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
   display: flex;
@@ -297,7 +298,6 @@ li.dataset-item::before {
     margin-right: auto;
 }
 #searchResults {
-    max-height: 300px;
     overflow-y: auto;
 }
 #tree-container ul {

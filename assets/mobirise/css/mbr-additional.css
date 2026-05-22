@@ -1565,7 +1565,7 @@ a {
   }
 }
 .cid-uXrblxTFNK .item-content {
-  padding: 2.25rem 2.25rem 0;
+  padding: 1rem 1rem 1rem;
   background: #ffffff;
 }
 @media (min-width: 992px) and (max-width: 1200px) {
@@ -1581,7 +1581,6 @@ a {
 .cid-uXrblxTFNK .item-wrapper {
   border-radius: 2rem;
   overflow: hidden;
-  margin-bottom: 2rem;
   background: #ffffff;
   padding: 0rem;
   height: 100%;

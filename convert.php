@@ -1,19 +1,9 @@
 <?php
-set_time_limit(0); 
+set_time_limit(0);
 ini_set('memory_limit', '256M');
-// Debug  κάθε βήμα με timestamp
-function logStep($msg) {
-    file_put_contents("debug_steps.log", 
-        date('H:i:s') . " - $msg\n", FILE_APPEND);
-}
-
-logStep("START");
-ob_start();
-
 $context = stream_context_create([
     'http' => ['timeout' => 60]
 ]);
-
 if (!isset($_GET['data_url'])) {
     http_response_code(400);
     echo "Missing data_url parameter.";
@@ -24,31 +14,19 @@ $labels = [];
 if (file_exists("cache/labels.json")) {
     $labels = json_decode(file_get_contents("cache/labels.json"), true) ?: [];
 }
-logStep("Labels loaded: " . count($labels));
-// Προσωρινά για debug
-file_put_contents("debug_labels.log", 
-    "LABELS KEYS: " . implode(", ", array_keys($labels)) . "\n" .
-    "GEO sample: " . print_r($labels['GEO'] ?? 'NOT FOUND', true) . "\n"
-);
 $dataXml = @file_get_contents($dataUrl, false, $context);
 if (!$dataXml) {
     http_response_code(504);
     echo "Failed to fetch XML or Timeout from Eurostat.";
     exit;
 }
-logStep("XML fetched, size: " . strlen($dataXml));
 $xml = simplexml_load_string($dataXml);
-$xml->registerXPathNamespace(
-    "m",
-    "http://www.sdmx.org/resources/sdmxml/schemas/v3_0/message"
-);
+$xml->registerXPathNamespace("m", "http://www.sdmx.org/resources/sdmxml/schemas/v3_0/message");
 preg_match('~/dataflow/ESTAT/([^/]+)/~', $dataUrl, $matches);
 $datasetId  = $matches[1] ?? 'unknown';
 $datasetUri = "estat:dataset/" . strtolower($datasetId);
 $seriesList = $xml->xpath('//m:DataSet/*');
-
 header("Content-Type: text/turtle; charset=utf-8");
-
 echo "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n";
 echo "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n";
 echo "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n";
@@ -60,21 +38,14 @@ echo "@prefix sdmx-attribute: <http://purl.org/linked-data/sdmx/2009/attribute#>
 echo "@prefix estat: <http://eurostat.linked-statistics.org/> .\n";
 echo "@prefix estatdim: <http://eurostat.linked-statistics.org/dimension/> .\n";
 echo "@prefix estatcode: <http://eurostat.linked-statistics.org/code/> .\n\n";
-
 echo "# Dataset\n\n";
 echo "$datasetUri a qb:DataSet ;\n";
 echo "    rdfs:label \"Eurostat Dataset: $datasetId\"@en ;\n";
 echo "    qb:structure estat:dsd/$datasetId .\n\n";
-
 $printedLabels = [];
-// FIX: initialize $skosBlocks so it always exists
 $skosBlocks    = [];
-
 echo "# Observations\n\n";
-logStep("Before echo output");
-logStep("XML parsed, series count: " . count($seriesList));
 foreach ($seriesList as $series) {
-    
     if ($series->getName() !== 'Series') {
         continue;
     }
@@ -85,45 +56,36 @@ foreach ($seriesList as $series) {
     foreach ($series->Obs as $obs) {
         $time  = (string)$obs['TIME_PERIOD'];
         $value = (string)$obs['OBS_VALUE'];
-
         $obsUriParts = [];
         foreach ($dimensions as $dim => $val) {
             $obsUriParts[] = strtoupper($dim) . "-" . strtoupper($val);
         }
         $obsUriParts[] = "time-" . $time;
-
-        $obsUri =
-            "estat:obs/"
-            . strtolower($datasetId)
-            . "/"
-            . implode("/", $obsUriParts);
-
+        $obsUri = "estat:obs/" . strtolower($datasetId) . "/" . implode("/", $obsUriParts);
+        if (preg_match('/^\d{4}$/', $time)) {
+            $timeType = 'xsd:gYear';
+        } elseif (preg_match('/^\d{4}-\d{2}$/', $time)) {
+            $timeType = 'xsd:gYearMonth';
+        } else {
+            $timeType = 'xsd:string';
+        }
         echo "$obsUri a qb:Observation ;\n";
         echo "    qb:dataSet $datasetUri ;\n";
-        echo "    sdmx-dimension:timePeriod \"$time\"^^xsd:gYear ;\n";
-
+        echo "    sdmx-dimension:timePeriod \"$time\"^^$timeType ;\n";
         if (is_numeric($value)) {
             echo "    sdmx-measure:obsValue \"$value\"^^xsd:decimal ;\n";
         } else {
             echo "    sdmx-measure:obsValue \"$value\" ;\n";
         }
-
         foreach ($dimensions as $dim => $val) {
-            logStep("Processing series $dim");
             $dimUpper = strtoupper($dim);
             $valUpper = strtoupper($val);
             echo "    estatdim:$dimUpper estatcode:$dimUpper/$valUpper ;\n";
             $uniqueKey = $dimUpper . ":" . $valUpper;
             if (!isset($printedLabels[$uniqueKey])) {
                 $printedLabels[$uniqueKey] = true;
-                $label = $labels[$dimUpper][$valUpper] ?? null;
-
-                file_put_contents("debug_labels.log",
-                    "[$dimUpper][$valUpper] => " . var_export($label, true) . "\n",
-                    FILE_APPEND
-                );
+                $label   = $labels[$dimUpper][$valUpper] ?? $valUpper;
                 $escaped = addslashes($label);
-
                 $skosBlocks[] =
                     "estatcode:$dimUpper/$valUpper a skos:Concept ;\n"
                     . "    skos:notation \"$valUpper\" ;\n"
@@ -131,18 +93,11 @@ foreach ($seriesList as $series) {
                     . "    skos:prefLabel \"$escaped\"@en .\n\n";
             }
         }
-
         echo "    .\n\n";
     }
 }
-logStep("After echo output - skosBlocks count: " . count($skosBlocks));
 echo "# Code Labels\n\n";
 if (!empty($skosBlocks)) {
     echo implode("", $skosBlocks);
 }
-
-$output = ob_get_clean();
-logStep("Output size: " . strlen($output) . " bytes");
-echo $output;
-logStep("DONE");
 ?>
