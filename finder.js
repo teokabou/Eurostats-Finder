@@ -101,8 +101,9 @@ function handleSearch() {
         document.getElementById("searchResults").innerHTML = "";
         return;
     }
-    // Επικοινωνία με τον Node.js Server για αστραπιαία αναζήτηση
-    fetch("http://localhost:3000/api/search?q=" + encodeURIComponent(q))
+    
+    // ΑΛΛΑΓΗ: Καλούμε το τοπικό PHP αρχείο αντί για τον Node.js server!
+    fetch("search_datasets.php?q=" + encodeURIComponent(q))
         .then(r => r.json())
         .then(data => {
             let html = "<ul>";
