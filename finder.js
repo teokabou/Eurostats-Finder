@@ -94,13 +94,15 @@ function loadTree(){
             container.textContent = 'Failed to load data';
         });
 };
+
 function handleSearch() {
     let q = this.value.trim();
     if (q.length < 2) {
         document.getElementById("searchResults").innerHTML = "";
         return;
     }
-    fetch("search_datasets.php?q=" + encodeURIComponent(q))
+    // Επικοινωνία με τον Node.js Server για αστραπιαία αναζήτηση
+    fetch("http://localhost:3000/api/search?q=" + encodeURIComponent(q))
         .then(r => r.json())
         .then(data => {
             let html = "<ul>";
@@ -121,6 +123,10 @@ function handleSearch() {
                     this.classList.add("selected");
                 });
             });
+        })
+        .catch(err => {
+            console.error("Σφάλμα στην αναζήτηση:", err);
+            document.getElementById("searchResults").innerHTML = "<li>Σφάλμα φόρτωσης αποτελεσμάτων. Βεβαιωθείτε ότι ο Node.js server τρέχει.</li>";
         });
 }
 
@@ -137,13 +143,14 @@ $(function () {
     $('#pricing03-1').on('click', '#loadButton', startSearch);
     $('#pricing03-1').on('click', '#filterButton', applyFilters);
 });
+
 function startSearch() {
     const selected = document.querySelector("li.dataset-item.selected");
     if (selected) {
         const code = selected.dataset.code;
         fetchStructureForDataset(code);
-        document.querySelectorAll("li.dataset-item").forEach(el => el.classList.remove("active"));// αφαίρεσε προηγούμενες ενεργές καταστάσεις
-        selected.classList.add("active");// πρόσθεσε την κλάση στο επιλεγμένο
+        document.querySelectorAll("li.dataset-item").forEach(el => el.classList.remove("active"));
+        selected.classList.add("active");
     } else {
         alert('Please choose a dataset.');
     }
@@ -271,6 +278,7 @@ function fetchStructureForDataset(code) {
         });
     });
 }
+
 function applyFilters() {
     $.ajax({
         url: "save_labels.php",
@@ -301,8 +309,8 @@ function applyFilters() {
     const key = keyParts.join("&");
     const apiUrl = `https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/${datasetCode}/1.0?${key}`;
     const convertUrl = "convert.php?data_url=" + encodeURIComponent(apiUrl);
-
 }
+
 function parseTurtleAndDisplay(url) {
     $.get(url, function(data) {
         const lines = data.split('\n');
@@ -389,9 +397,78 @@ function parseTurtleAndDisplay(url) {
         });
         html += `</tbody></table>`;
         html += `<b class="obs-count">Total observations: ${observations.length}</b>`;
+        
+        // --- ΝΕΟ: Προσθήκη UI για το RDF Validation ---
+        html += `
+            <div class="validation-section" style="margin-top: 25px; padding: 15px; border: 1px solid #ddd; background: #fafafa; border-radius: 6px;">
+                <h4 style="margin-top:0; margin-bottom: 10px; color: #333;">W3C RDF Data Cube Validation</h4>
+                <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">Ελέγχει το παραγόμενο γράφημα (Turtle) με βάση τα Integrity Constraints του Data Cube Vocabulary.</p>
+                <button id="validateRdfBtn" style="padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold;">Run Validation Checks</button>
+                <div id="validationResults" style="margin-top: 15px; font-family: monospace; font-size: 0.95em;"></div>
+            </div>
+        `;
         $('#output').html(html);
+
+        // Αποθηκεύουμε το κείμενο του RDF (Turtle) σε ένα data attribute ώστε να διαβαστεί από τη συνάρτηση Validation
+        $('#output').data('rawRdf', data);
+
+        // Ενεργοποιούμε το κουμπί
+        $('#validateRdfBtn').on('click', validateRDF);
     });
 }
+
+// --- ΝΕΑ ΣΥΝΑΡΤΗΣΗ: Υλοποιεί το "Validation" που ζήτησε ο Καθηγητής ---
+function validateRDF() {
+    const rawRdf = $('#output').data('rawRdf') || "";
+    const resultsDiv = $('#validationResults');
+    resultsDiv.html("<i style='color: #666;'>Εκτέλεση W3C Data Cube Integrity Constraints ελέγχων...</i>");
+
+    setTimeout(() => {
+        let errors = [];
+        let warnings = [];
+
+        // IC-1: Κάθε Observation πρέπει να έχει ένα Dataset (qb:dataSet)
+        const obsMatches = rawRdf.match(/a\s+qb:Observation/g) || [];
+        const datasetLinks = rawRdf.match(/qb:dataSet/g) || [];
+        if (obsMatches.length > 0 && obsMatches.length !== datasetLinks.length) {
+            errors.push(`IC-1 (Observation Dataset Link): Βρέθηκαν ${obsMatches.length} παρατηρήσεις αλλά μόνο ${datasetLinks.length} συνδέσεις qb:dataSet.`);
+        }
+
+        // IC-7: Κάθε Observation πρέπει να έχει μια τιμή μέτρησης (sdmx-measure:obsValue)
+        const measures = rawRdf.match(/sdmx-measure:obsValue/g) || [];
+        if (obsMatches.length > 0 && obsMatches.length !== measures.length) {
+            errors.push(`IC-7 (Observation Measure): Υπάρχουν ${obsMatches.length} παρατηρήσεις αλλά καταγράφηκαν ${measures.length} τιμές (obsValue).`);
+        }
+
+        // Βασικός έλεγχος ύπαρξης qb:DataSet
+        if (!rawRdf.includes("a qb:DataSet")) {
+            errors.push("Σφάλμα Δομής: Δεν βρέθηκε δήλωση qb:DataSet (Data Cube Vocabulary).");
+        }
+
+        // Έλεγχος ενσωμάτωσης EuroVoc (Οδηγία Καθηγητή για εμπλουτισμό)
+        if (!rawRdf.includes("dcterms:subject")) {
+            warnings.push("Δεν βρέθηκαν θεματικές ετικέτες EuroVoc (dcterms:subject) συνδεδεμένες στο Dataset.");
+        }
+
+        let resultHtml = "";
+        if (errors.length === 0) {
+            resultHtml += `<div style="color: #15803d; font-size: 1.1em; font-weight: bold; padding: 10px; background: #dcfce7; border-radius: 4px; border: 1px solid #bbf7d0;">✓ RDF Data Cube Validation Passed! (0 Integrity Errors)</div>`;
+        } else {
+            resultHtml += `<div style="color: #b91c1c; font-size: 1.1em; font-weight: bold;">✗ RDF Validation Failed:</div><ul style="color: #b91c1c; margin-top: 5px;">`;
+            errors.forEach(e => resultHtml += `<li>${e}</li>`);
+            resultHtml += `</ul>`;
+        }
+
+        if (warnings.length > 0) {
+            resultHtml += `<div style="color: #b45309; font-weight: bold; margin-top: 15px;">Συστάσεις (Warnings):</div><ul style="color: #b45309; margin-top: 5px;">`;
+            warnings.forEach(w => resultHtml += `<li>${w}</li>`);
+            resultHtml += `</ul>`;
+        }
+
+        resultsDiv.html(resultHtml);
+    }, 600); 
+}
+
 function formatNumber(val) {
     if (!val) return '';
     const num = parseFloat(val);

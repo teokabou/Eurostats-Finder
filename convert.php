@@ -41,6 +41,20 @@ echo "@prefix estatcode: <http://eurostat.linked-statistics.org/code/> .\n\n";
 echo "# Dataset\n\n";
 echo "$datasetUri a qb:DataSet ;\n";
 echo "    rdfs:label \"Eurostat Dataset: $datasetId\"@en ;\n";
+
+// ΝΕΟ: Ανάκτηση EuroVoc από το τοπικό Node.js API και προσθήκη στο RDF
+$nodeApiUrl = "http://localhost:3000/api/dataset/" . urlencode(strtolower($datasetId));
+$nodeResponse = @file_get_contents($nodeApiUrl);
+if ($nodeResponse) {
+    $nodeData = json_decode($nodeResponse, true);
+    if (!empty($nodeData['eurovoc'])) {
+        foreach ($nodeData['eurovoc'] as $evLabel) {
+            $evLabelEscaped = addslashes($evLabel);
+            echo "    dcterms:subject \"$evLabelEscaped\"@en ;\n";
+        }
+    }
+}
+
 echo "    qb:structure estat:dsd/$datasetId .\n\n";
 $printedLabels = [];
 $skosBlocks    = [];

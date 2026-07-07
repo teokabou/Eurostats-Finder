@@ -1,86 +1,48 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
 
-$q = strtolower(trim($_GET['q'] ?? ''));
-if ($q === '') {
+// Ελέγχουμε αν υπάρχει λέξη προς αναζήτηση
+if (!isset($_GET['q']) || mb_strlen(trim($_GET['q'])) < 2) {
     echo json_encode([]);
     exit;
 }
 
-include 'euroVoc.php';
+$q = trim($_GET['q']);
+// Προσοχή: Βεβαιώσου ότι θα βάλεις το αρχείο eurostat.db στον ίδιο φάκελο με αυτό το PHP αρχείο!
+$dbPath = __DIR__ . '/eurostat.db';
 
-$terms = [$q];                      // αρχικός όρος
-$expanded = eurovocLiveExpand($q);  // EuroVoc LIVE expansion 
-$terms = array_merge($terms, $expanded);
-$terms = array_unique($terms);
-
-//for debugging
-error_log("Query: " . $q);
-error_log("Terms: " . json_encode($terms));
-
-$tocPath = __DIR__ . '/cache/toc.xml';
-$xml = simplexml_load_file($tocPath);
-$ns = $xml->getNamespaces(true);
-$xml->registerXPathNamespace('nt', $ns['nt']);
-$leaves = $xml->xpath('//nt:leaf');
-$results = [];
-foreach ($leaves as $leaf) {
-
-    $title = (string)($leaf->xpath('nt:title[@language="en"]')[0] ?? '');
-    $code  = (string)($leaf->xpath('nt:code')[0] ?? '');
-    $meta  = strip_tags((string)($leaf->xpath('nt:metadata')[0] ?? ''));
-
-    $haystack = strtolower($title . " " . $code . " " . $meta);
-
-    foreach ($terms as $term) {
-        if (strpos($haystack, strtolower($term)) !== false) {
-
-            $results[] = [
-                'title' => $title,
-                'code' => $code
-            ];
-
-            break;
-        }
-    }
-}
-// optional limit
-$results = array_slice($results, 0, 50);
-echo json_encode($results, JSON_UNESCAPED_UNICODE);
-
-/* ΠΑΛΙΟ
-$q = strtolower(trim($_GET['q'] ?? ''));
-
-if ($q === '') {
-    echo json_encode([]);
+if (!file_exists($dbPath)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database file not found on server.']);
     exit;
 }
 
-$tocPath = __DIR__ . '/cache/toc.xml';
-$xml = simplexml_load_file($tocPath);
+try {
+    // Σύνδεση στη βάση SQLite μέσω του ενσωματωμένου PDO της PHP
+    $db = new PDO('sqlite:' . $dbPath);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-$ns = $xml->getNamespaces(true);
-$xml->registerXPathNamespace('nt', $ns['nt']);
+    // Η μαγική SQL με το BM25 Scoring (ακριβώς όπως την είχαμε στο Node.js)
+    $query = '
+        SELECT 
+            dataset_id AS code, 
+            title, 
+            bm25(datasets_fts, 1.0, 2.0, 5.0, 5.0, 10.0) AS score
+        FROM datasets_fts
+        WHERE datasets_fts MATCH ?
+        ORDER BY score ASC
+        LIMIT 50
+    ';
 
-$leaves = $xml->xpath('//nt:leaf');
+    $stmt = $db->prepare($query);
+    // Προσθέτουμε τον αστερίσκο για wildcard αναζήτηση
+    $stmt->execute(['"' . $q . '"*']);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$results = [];
-
-foreach ($leaves as $leaf) {
-
-    $title = (string)($leaf->xpath('nt:title[@language="en"]')[0] ?? '');
-    $code  = (string)($leaf->xpath('nt:code')[0] ?? '');
-    $meta  = strip_tags((string)($leaf->xpath('nt:metadata')[0] ?? ''));
-
-    $haystack = strtolower($title . " " . $code . " " . $meta);
-
-    if (strpos($haystack, $q) !== false) {
-        $results[] = [
-            'title' => $title,
-            'code' => $code
-        ];
-    }
+    echo json_encode($results);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
 }
-
-echo json_encode($results, JSON_UNESCAPED_UNICODE);*/
 ?>

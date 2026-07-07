@@ -284,6 +284,8 @@ li.dataset-item::before {
   width:90%;
   margin-left: auto;
   margin-right: auto;
+  overflow-y: auto;
+  max-height: 300px;
 }
 #datasetSearch {
     width:90%;
