@@ -9,7 +9,6 @@ if (!isset($_GET['q']) || mb_strlen(trim($_GET['q'])) < 2) {
 }
 
 $q = trim($_GET['q']);
-// Προσοχή: Βεβαιώσου ότι θα βάλεις το αρχείο eurostat.db στον ίδιο φάκελο με αυτό το PHP αρχείο!
 $dbPath = __DIR__ . '/eurostat.db';
 
 if (!file_exists($dbPath)) {
@@ -19,16 +18,17 @@ if (!file_exists($dbPath)) {
 }
 
 try {
-    // Σύνδεση στη βάση SQLite μέσω του ενσωματωμένου PDO της PHP
+    // Σύνδεση στη βάση SQLite μέσω PDO
     $db = new PDO('sqlite:' . $dbPath);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Η μαγική SQL με το BM25 Scoring (ακριβώς όπως την είχαμε στο Node.js)
+    // ΔΙΟΡΘΩΣΗ: Η SQLite έχει 6 στήλες στον πίνακα, άρα θέλει ακριβώς 6 βάρη!
+    // Βάρη: dataset_id (0.0), title (1.0), theme (2.0), parentTitle (2.0), esms (5.0), search_text (10.0)
     $query = '
         SELECT 
             dataset_id AS code, 
             title, 
-            bm25(datasets_fts, 1.0, 2.0, 5.0, 5.0, 10.0) AS score
+            bm25(datasets_fts, 0.0, 1.0, 2.0, 2.0, 5.0, 10.0) AS score
         FROM datasets_fts
         WHERE datasets_fts MATCH ?
         ORDER BY score ASC
