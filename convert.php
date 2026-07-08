@@ -32,25 +32,37 @@ echo "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n";
 echo "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n";
 echo "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n";
 echo "@prefix qb: <http://purl.org/linked-data/cube#> .\n";
+// ... existing code ...
 echo "@prefix sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#> .\n";
 echo "@prefix sdmx-dimension: <http://purl.org/linked-data/sdmx/2009/dimension#> .\n";
 echo "@prefix sdmx-attribute: <http://purl.org/linked-data/sdmx/2009/attribute#> .\n";
 echo "@prefix estat: <http://eurostat.linked-statistics.org/> .\n";
 echo "@prefix estatdim: <http://eurostat.linked-statistics.org/dimension/> .\n";
-echo "@prefix estatcode: <http://eurostat.linked-statistics.org/code/> .\n\n";
+echo "@prefix estatcode: <http://eurostat.linked-statistics.org/code/> .\n";
+echo "@prefix dcterms: <http://purl.org/dc/terms/> .\n\n";
+
 echo "# Dataset\n\n";
 echo "$datasetUri a qb:DataSet ;\n";
 echo "    rdfs:label \"Eurostat Dataset: $datasetId\"@en ;\n";
 
-// ΝΕΟ: Ανάκτηση EuroVoc από το τοπικό Node.js API και προσθήκη στο RDF
-$nodeApiUrl = "http://localhost:3000/api/dataset/" . urlencode(strtolower($datasetId));
-$nodeResponse = @file_get_contents($nodeApiUrl);
-if ($nodeResponse) {
-    $nodeData = json_decode($nodeResponse, true);
-    if (!empty($nodeData['eurovoc'])) {
-        foreach ($nodeData['eurovoc'] as $evLabel) {
-            $evLabelEscaped = addslashes($evLabel);
-            echo "    dcterms:subject \"$evLabelEscaped\"@en ;\n";
+// --- ΑΝΑΓΝΩΣΗ EUROVOC ΑΠΟ ΤΟ JSON ΑΝΑΖΗΤΗΣΗΣ ---
+$jsonPath = __DIR__ . '/search_data.json';
+if (file_exists($jsonPath)) {
+    $jsonData = file_get_contents($jsonPath);
+    $datasets = json_decode($jsonData, true);
+    if ($datasets) {
+        // Ψάχνουμε το συγκεκριμένο dataset στο JSON
+        foreach ($datasets as $ds) {
+            if (strtolower($ds['id']) === strtolower($datasetId)) {
+                // Αν βρεθεί και έχει ετικέτες EuroVoc
+                if (!empty($ds['eurovoc']) && is_array($ds['eurovoc'])) {
+                    foreach ($ds['eurovoc'] as $evLabel) {
+                        $evLabelEscaped = addslashes($evLabel);
+                        echo "    dcterms:subject \"$evLabelEscaped\"@en ;\n";
+                    }
+                }
+                break;
+            }
         }
     }
 }

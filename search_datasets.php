@@ -2,47 +2,68 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
-// Ελέγχουμε αν υπάρχει λέξη προς αναζήτηση
 if (!isset($_GET['q']) || mb_strlen(trim($_GET['q'])) < 2) {
     echo json_encode([]);
     exit;
 }
 
-$q = trim($_GET['q']);
-$dbPath = __DIR__ . '/eurostat.db';
+// Μετατρέπουμε την αναζήτηση σε πεζά (μικρά) γράμματα
+$q = mb_strtolower(trim($_GET['q']), 'UTF-8');
+$jsonPath = __DIR__ . '/search_data.json';
 
-if (!file_exists($dbPath)) {
+if (!file_exists($jsonPath)) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database file not found on server.']);
+    echo json_encode(['error' => 'Search index file not found.']);
     exit;
 }
 
-try {
-    // Σύνδεση στη βάση SQLite μέσω PDO
-    $db = new PDO('sqlite:' . $dbPath);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+// Διαβάζουμε το πλήρες JSON αρχείο
+$jsonData = file_get_contents($jsonPath);
+$datasets = json_decode($jsonData, true);
 
-    // ΔΙΟΡΘΩΣΗ: Η SQLite έχει 6 στήλες στον πίνακα, άρα θέλει ακριβώς 6 βάρη!
-    // Βάρη: dataset_id (0.0), title (1.0), theme (2.0), parentTitle (2.0), esms (5.0), search_text (10.0)
-    $query = '
-        SELECT 
-            dataset_id AS code, 
-            title, 
-            bm25(datasets_fts, 0.0, 1.0, 2.0, 2.0, 5.0, 10.0) AS score
-        FROM datasets_fts
-        WHERE datasets_fts MATCH ?
-        ORDER BY score ASC
-        LIMIT 50
-    ';
-
-    $stmt = $db->prepare($query);
-    // Προσθέτουμε τον αστερίσκο για wildcard αναζήτηση
-    $stmt->execute(['"' . $q . '"*']);
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    echo json_encode($results);
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+if (!$datasets) {
+    echo json_encode([]);
+    exit;
 }
+
+$results = [];
+
+foreach ($datasets as $ds) {
+    $titleLower = mb_strtolower($ds['title'] ?? '', 'UTF-8');
+    $themeLower = mb_strtolower($ds['theme'] ?? '', 'UTF-8');
+    $idLower = mb_strtolower($ds['id'] ?? '', 'UTF-8');
+    $searchLower = mb_strtolower($ds['search_text'] ?? '', 'UTF-8');
+
+    $score = 0;
+
+    // Προσομοίωση αλγορίθμου BM25 με τα σωστά βάρη!
+    if (mb_strpos($titleLower, $q) !== false) {
+        $score += 100; // Βάρος 1.0 (Μέγιστη σημασία)
+    }
+    if (mb_strpos($themeLower, $q) !== false) {
+        $score += 50;  // Βάρος 2.0 (Πολύ σημαντικό)
+    }
+    if (mb_strpos($idLower, $q) !== false) {
+        $score += 40;  // Extra μπόνους αν έψαξε ακριβώς τον κωδικό
+    }
+    if (mb_strpos($searchLower, $q) !== false) {
+        $score += 20;  // Βάρος 5.0 και 10.0 (EuroVoc / ESMS / Codelists)
+    }
+
+    if ($score > 0) {
+        $results[] = [
+            'code' => $ds['id'],
+            'title' => $ds['title'],
+            'score' => $score
+        ];
+    }
+}
+
+// Ταξινόμηση: Τα μεγαλύτερα σκορ (πιο σχετικά) εμφανίζονται πρώτα
+usort($results, function($a, $b) {
+    return $b['score'] <=> $a['score'];
+});
+
+// Επιστρέφουμε μόνο τα πρώτα 50 αποτελέσματα
+echo json_encode(array_slice($results, 0, 50));
 ?>
